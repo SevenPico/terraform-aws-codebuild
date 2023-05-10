@@ -254,10 +254,16 @@ variable "logs_config" {
   description = "Configuration for the builds to store log data to CloudWatch or S3."
 }
 
-variable "extra_permissions" {
-  type        = list(any)
+//variable "extra_permissionss" {
+//  type        = list(any)
+//  default     = []
+//  description = "List of action strings which will be added to IAM service account permissions."
+//}
+
+variable "codebuild_policy_documents" {
+  type        = list(string)
   default     = []
-  description = "List of action strings which will be added to IAM service account permissions."
+  description = "List of Policy Documents which will be added to IAM service account permissions."
 }
 
 variable "iam_role_path" {

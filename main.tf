@@ -1,16 +1,13 @@
-data "aws_caller_identity" "default" {}
-
-data "aws_region" "default" {}
 
 resource "aws_s3_bucket" "cache_bucket" {
   #bridgecrew:skip=BC_AWS_S3_13:Skipping `Enable S3 Bucket Logging` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=BC_AWS_S3_14:Skipping `Ensure all data stored in the S3 bucket is securely encrypted at rest` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=CKV_AWS_52:Skipping `Ensure S3 bucket has MFA delete enabled` due to issue in terraform (https://github.com/hashicorp/terraform-provider-aws/issues/629).
-  count         = module.this.enabled && local.create_s3_cache_bucket ? 1 : 0
+  count         = module.context.enabled && local.create_s3_cache_bucket ? 1 : 0
   bucket        = local.cache_bucket_name_normalised
   acl           = "private"
   force_destroy = true
-  tags          = module.this.tags
+  tags          = module.context.tags
 
   versioning {
     enabled = var.versioning_enabled
@@ -20,7 +17,7 @@ resource "aws_s3_bucket" "cache_bucket" {
     for_each = var.access_log_bucket_name != "" ? [1] : []
     content {
       target_bucket = var.access_log_bucket_name
-      target_prefix = "logs/${module.this.id}/"
+      target_prefix = "logs/${module.context.id}/"
     }
   }
 
@@ -29,7 +26,7 @@ resource "aws_s3_bucket" "cache_bucket" {
     enabled = true
 
     prefix = "/"
-    tags   = module.this.tags
+    tags   = module.context.tags
 
     expiration {
       days = var.cache_expiration_days
@@ -50,7 +47,7 @@ resource "aws_s3_bucket" "cache_bucket" {
 }
 
 resource "random_string" "bucket_prefix" {
-  count   = module.this.enabled ? 1 : 0
+  count   = module.context.enabled ? 1 : 0
   length  = 12
   numeric = false
   upper   = false
@@ -59,7 +56,7 @@ resource "random_string" "bucket_prefix" {
 }
 
 locals {
-  cache_bucket_name = "${module.this.id}${var.cache_bucket_suffix_enabled ? "-${join("", random_string.bucket_prefix.*.result)}" : ""}"
+  cache_bucket_name = "${module.context.id}${var.cache_bucket_suffix_enabled ? "-${join("", random_string.bucket_prefix.*.result)}" : ""}"
 
   ## Clean up the bucket name to use only hyphens, and trim its length to 63 characters.
   ## As per https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
@@ -79,7 +76,7 @@ locals {
   cache_options = {
     "S3" = {
       type     = "S3"
-      location = module.this.enabled && local.s3_cache_enabled ? local.s3_bucket_name : "none"
+      location = module.context.enabled && local.s3_cache_enabled ? local.s3_bucket_name : "none"
     },
     "LOCAL" = {
       type  = "LOCAL"
@@ -95,13 +92,13 @@ locals {
 }
 
 resource "aws_iam_role" "default" {
-  count                 = module.this.enabled ? 1 : 0
-  name                  = module.this.id
+  count                 = module.context.enabled ? 1 : 0
+  name                  = module.context.id
   assume_role_policy    = data.aws_iam_policy_document.role.json
   force_detach_policies = true
   path                  = var.iam_role_path
   permissions_boundary  = var.iam_permissions_boundary
-  tags                  = module.this.tags
+  tags                  = module.context.tags
 }
 
 data "aws_iam_policy_document" "role" {
@@ -122,34 +119,35 @@ data "aws_iam_policy_document" "role" {
 }
 
 resource "aws_iam_policy" "default" {
-  count  = module.this.enabled ? 1 : 0
-  name   = module.this.id
+  count  = module.context.enabled ? 1 : 0
+  name   = module.context.id
   path   = var.iam_policy_path
   policy = data.aws_iam_policy_document.combined_permissions.json
-  tags   = module.this.tags
+  tags   = module.context.tags
 }
 
 resource "aws_iam_policy" "default_cache_bucket" {
-  count = module.this.enabled && local.s3_cache_enabled ? 1 : 0
+  count = module.context.enabled && local.s3_cache_enabled ? 1 : 0
 
-  name   = "${module.this.id}-cache-bucket"
+  name   = "${module.context.id}-cache-bucket"
   path   = var.iam_policy_path
   policy = join("", data.aws_iam_policy_document.permissions_cache_bucket.*.json)
-  tags   = module.this.tags
+  tags   = module.context.tags
 }
 
 data "aws_s3_bucket" "secondary_artifact" {
-  count  = module.this.enabled ? (var.secondary_artifact_location != null ? 1 : 0) : 0
+  count  = module.context.enabled ? (var.secondary_artifact_location != null ? 1 : 0) : 0
   bucket = var.secondary_artifact_location
 }
 
 data "aws_iam_policy_document" "permissions" {
-  count = module.this.enabled ? 1 : 0
+  count = module.context.enabled ? 1 : 0
+  source_policy_documents = var.codebuild_policy_documents
 
   statement {
     sid = ""
 
-    actions = compact(concat([
+    actions = [
       "codecommit:GitPull",
       "ecr:BatchCheckLayerAvailability",
       "ecr:CompleteLayerUpload",
@@ -164,7 +162,7 @@ data "aws_iam_policy_document" "permissions" {
       "logs:PutLogEvents",
       "ssm:GetParameters",
       "secretsmanager:GetSecretValue",
-    ], var.extra_permissions))
+    ]
 
     effect = "Allow"
 
@@ -195,7 +193,7 @@ data "aws_iam_policy_document" "permissions" {
 }
 
 data "aws_iam_policy_document" "vpc_permissions" {
-  count = module.this.enabled && var.vpc_config != {} ? 1 : 0
+  count = module.context.enabled && var.vpc_config != {} ? 1 : 0
 
   statement {
     sid = ""
@@ -254,7 +252,7 @@ data "aws_iam_policy_document" "combined_permissions" {
 }
 
 data "aws_iam_policy_document" "permissions_cache_bucket" {
-  count = module.this.enabled && local.s3_cache_enabled ? 1 : 0
+  count = module.context.enabled && local.s3_cache_enabled ? 1 : 0
   statement {
     sid = ""
 
@@ -272,19 +270,19 @@ data "aws_iam_policy_document" "permissions_cache_bucket" {
 }
 
 resource "aws_iam_role_policy_attachment" "default" {
-  count      = module.this.enabled ? 1 : 0
+  count      = module.context.enabled ? 1 : 0
   policy_arn = join("", aws_iam_policy.default.*.arn)
   role       = join("", aws_iam_role.default.*.id)
 }
 
 resource "aws_iam_role_policy_attachment" "default_cache_bucket" {
-  count      = module.this.enabled && local.s3_cache_enabled ? 1 : 0
+  count      = module.context.enabled && local.s3_cache_enabled ? 1 : 0
   policy_arn = join("", aws_iam_policy.default_cache_bucket.*.arn)
   role       = join("", aws_iam_role.default.*.id)
 }
 
 resource "aws_codebuild_source_credential" "authorization" {
-  count       = module.this.enabled && var.private_repository ? 1 : 0
+  count       = module.context.enabled && var.private_repository ? 1 : 0
   auth_type   = var.source_credential_auth_type
   server_type = var.source_credential_server_type
   token       = var.source_credential_token
@@ -292,8 +290,8 @@ resource "aws_codebuild_source_credential" "authorization" {
 }
 
 resource "aws_codebuild_project" "default" {
-  count                  = module.this.enabled ? 1 : 0
-  name                   = module.this.id
+  count                  = module.context.enabled ? 1 : 0
+  name                   = module.context.id
   description            = var.description
   concurrent_build_limit = var.concurrent_build_limit
   service_role           = join("", aws_iam_role.default.*.arn)
@@ -303,7 +301,7 @@ resource "aws_codebuild_project" "default" {
   encryption_key         = var.encryption_key
 
   tags = {
-    for name, value in module.this.tags :
+    for name, value in module.context.tags :
     name => value
     if length(value) > 0
   }
@@ -352,12 +350,12 @@ resource "aws_codebuild_project" "default" {
 
     environment_variable {
       name  = "AWS_REGION"
-      value = signum(length(var.aws_region)) == 1 ? var.aws_region : data.aws_region.default.name
+      value = signum(length(var.aws_region)) == 1 ? var.aws_region : local.region
     }
 
     environment_variable {
       name  = "AWS_ACCOUNT_ID"
-      value = signum(length(var.aws_account_id)) == 1 ? var.aws_account_id : data.aws_caller_identity.default.account_id
+      value = signum(length(var.aws_account_id)) == 1 ? var.aws_account_id : local.account_id
     }
 
     dynamic "environment_variable" {
@@ -377,10 +375,10 @@ resource "aws_codebuild_project" "default" {
     }
 
     dynamic "environment_variable" {
-      for_each = signum(length(module.this.stage)) == 1 ? [""] : []
+      for_each = signum(length(module.context.stage)) == 1 ? [""] : []
       content {
         name  = "STAGE"
-        value = module.this.stage
+        value = module.context.stage
       }
     }
 
