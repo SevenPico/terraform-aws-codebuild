@@ -74,12 +74,14 @@ variable "environment_variables" {
     {
       name  = string
       value = string
+      type  = string
   }))
 
   default = [
     {
       name  = "NO_ADDITIONAL_BUILD_VARS"
       value = "TRUE"
+      type  = "PLAINTEXT"
   }]
 
   description = "A list of maps, that contain both the key 'name' and the key 'value' to be used as additional environment variables for the build"
@@ -287,14 +289,14 @@ variable "logs_config" {
   description = "Configuration for the builds to store log data to CloudWatch or S3."
 }
 
-variable "extra_permissions" {
-  type        = list
-  default     = []
-  description = "List of action strings which will be added to IAM service account permissions."
-}
+#variable "extra_permissions" {
+#  type        = list(any)
+#  default     = []
+#  description = "List of action strings which will be added to IAM service account permissions."
+#}
 
 # Log tracker
 variable "log_tracker" {
-  type    = map
+  type    = map(any)
   default = {}
 }
