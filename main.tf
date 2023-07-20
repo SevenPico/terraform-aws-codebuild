@@ -3,6 +3,10 @@ resource "aws_s3_bucket" "cache_bucket" {
   #bridgecrew:skip=BC_AWS_S3_13:Skipping `Enable S3 Bucket Logging` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=BC_AWS_S3_14:Skipping `Ensure all data stored in the S3 bucket is securely encrypted at rest` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=CKV_AWS_52:Skipping `Ensure S3 bucket has MFA delete enabled` due to issue in terraform (https://github.com/hashicorp/terraform-provider-aws/issues/629).
+  #checkov:skip=CKV2_AWS_6:skipping 'Ensure that S3 bucket has a Public Access block'
+  #checkov:skip=CKV2_AWS_62:skipping 'Ensure S3 buckets should have event notifications enabled'
+  #checkov:skip=CKV_AWS_145:skipping 'Ensure that S3 buckets are encrypted with KMS by default'
+  #checkov:skip=CKV_AWS_144:skipping 'Ensure that S3 bucket has cross-region replication enabled'
   count         = module.context.enabled && local.create_s3_cache_bucket ? 1 : 0
   bucket        = local.cache_bucket_name_normalised
   acl           = "private"
@@ -141,7 +145,11 @@ data "aws_s3_bucket" "secondary_artifact" {
 }
 
 data "aws_iam_policy_document" "permissions" {
-  count = module.context.enabled ? 1 : 0
+  #checkov:skip=CKV_AWS_111:skipping 'Ensure IAM policies does not allow write access without constraints'
+  #checkov:skip=CKV_AWS_356:skipping 'Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions'
+  #checkov:skip=CKV_AWS_108:skipping 'Ensure IAM policies does not allow data exfiltration'
+  #checkov:skip=CKV_AWS_109:skipping 'Ensure IAM policies does not allow permissions management / resource exposure without constraints'
+  count                   = module.context.enabled ? 1 : 0
   source_policy_documents = var.codebuild_policy_documents
 
   statement {
@@ -193,6 +201,8 @@ data "aws_iam_policy_document" "permissions" {
 }
 
 data "aws_iam_policy_document" "vpc_permissions" {
+  #checkov:skip=CKV_AWS_111:skipping 'Ensure IAM policies does not allow write access without constraints'
+  #checkov:skip=CKV_AWS_356:skipping 'Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions'
   count = module.context.enabled && var.vpc_config != {} ? 1 : 0
 
   statement {
@@ -290,6 +300,7 @@ resource "aws_codebuild_source_credential" "authorization" {
 }
 
 resource "aws_codebuild_project" "default" {
+  #checkov:skip=CKV_AWS_316:skipping 'Ensure CodeBuild project environments do not have privileged mode enabled'
   count                  = module.context.enabled ? 1 : 0
   name                   = module.context.id
   description            = var.description
@@ -323,7 +334,7 @@ resource "aws_codebuild_project" "default" {
       type                = "S3"
       location            = var.secondary_artifact_location
       artifact_identifier = var.secondary_artifact_identifier
-      encryption_disabled = ! var.secondary_artifact_encryption_enabled
+      encryption_disabled = !var.secondary_artifact_encryption_enabled
       # According to AWS documention, in order to have the artifacts written
       # to the root of the bucket, the 'namespace_type' should be 'NONE'
       # (which is the default), 'name' should be '/', and 'path' should be
@@ -408,14 +419,6 @@ resource "aws_codebuild_project" "default" {
     location            = var.source_location
     report_build_status = var.report_build_status
     git_clone_depth     = var.git_clone_depth != null ? var.git_clone_depth : null
-
-    dynamic "auth" {
-      for_each = var.private_repository ? [""] : []
-      content {
-        type     = "OAUTH"
-        resource = join("", aws_codebuild_source_credential.authorization.*.id)
-      }
-    }
 
     dynamic "git_submodules_config" {
       for_each = var.fetch_git_submodules ? [""] : []

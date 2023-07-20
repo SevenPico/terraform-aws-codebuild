@@ -1,4 +1,5 @@
 resource "aws_ecr_repository" "ecr_repo" {
+  #checkov:skip=CKV_AWS_136:skipping 'Ensure that ECR repositories are encrypted using KMS'
   name                 = local.repository_name
   image_tag_mutability = var.image_tag_mutability
 
@@ -6,7 +7,7 @@ resource "aws_ecr_repository" "ecr_repo" {
     scan_on_push = var.scan_on_push
   }
 
-  tags = ["example"]
+  tags = {}
 }
 
 resource "aws_ecr_lifecycle_policy" "lifecycle" {

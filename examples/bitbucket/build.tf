@@ -17,9 +17,6 @@ module "build" {
   image_repo_name = aws_ecr_repository.ecr_repo.name
   image_tag       = local.image_tag
 
-  # Extra permissions
-  extra_permissions = var.extra_permissions
-
   # environment_variables 
   aws_region            = var.aws_region
   aws_account_id        = var.aws_account_id
