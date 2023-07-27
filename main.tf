@@ -3,9 +3,9 @@ resource "aws_s3_bucket" "cache_bucket" {
   #bridgecrew:skip=BC_AWS_S3_13:Skipping `Enable S3 Bucket Logging` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=BC_AWS_S3_14:Skipping `Ensure all data stored in the S3 bucket is securely encrypted at rest` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=CKV_AWS_52:Skipping `Ensure S3 bucket has MFA delete enabled` due to issue in terraform (https://github.com/hashicorp/terraform-provider-aws/issues/629).
-  count         = module.context.enabled && local.create_s3_cache_bucket ? 1 : 0
-  bucket        = local.cache_bucket_name_normalised
-#  acl           = "private"
+  count  = module.context.enabled && local.create_s3_cache_bucket ? 1 : 0
+  bucket = local.cache_bucket_name_normalised
+  #  acl           = "private"
   force_destroy = true
   tags          = module.context.tags
 
@@ -141,7 +141,7 @@ data "aws_s3_bucket" "secondary_artifact" {
 }
 
 data "aws_iam_policy_document" "permissions" {
-  count = module.context.enabled ? 1 : 0
+  count                   = module.context.enabled ? 1 : 0
   source_policy_documents = var.codebuild_policy_documents
 
   statement {
@@ -323,7 +323,7 @@ resource "aws_codebuild_project" "default" {
       type                = "S3"
       location            = var.secondary_artifact_location
       artifact_identifier = var.secondary_artifact_identifier
-      encryption_disabled = ! var.secondary_artifact_encryption_enabled
+      encryption_disabled = !var.secondary_artifact_encryption_enabled
       # According to AWS documention, in order to have the artifacts written
       # to the root of the bucket, the 'namespace_type' should be 'NONE'
       # (which is the default), 'name' should be '/', and 'path' should be
@@ -408,14 +408,15 @@ resource "aws_codebuild_project" "default" {
     location            = var.source_location
     report_build_status = var.report_build_status
     git_clone_depth     = var.git_clone_depth != null ? var.git_clone_depth : null
-#
-#    dynamic "auth" {
-#      for_each = var.private_repository ? [""] : []
-#      content {
-#        type     = "OAUTH"
-#        resource = join("", aws_codebuild_source_credential.authorization.*.id)
-#      }
-#    }
+    insecure_ssl        = var.insecure_ssl
+
+    dynamic "build_status_config" {
+      for_each = var.build_status_config
+      content {
+        context    = build_status_config.value.context
+        target_url = build_status_config.value.target_url
+      }
+    }
 
     dynamic "git_submodules_config" {
       for_each = var.fetch_git_submodules ? [""] : []
