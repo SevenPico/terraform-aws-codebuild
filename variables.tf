@@ -88,6 +88,15 @@ variable "buildspec" {
   description = "Optional buildspec declaration to use for building the project"
 }
 
+variable "build_status_config" {
+  type = map(object({
+    context    = string
+    target_url = string
+  }))
+  default     = {}
+  description = "Optional only used when the source provider is GITHUB, GITHUB_ENTERPRISE, or BITBUCKET."
+}
+
 variable "privileged_mode" {
   type        = bool
   default     = false
@@ -128,6 +137,12 @@ variable "image_tag" {
   type        = string
   default     = "latest"
   description = "(Optional) Docker image tag in the ECR repository, e.g. 'latest'. Used as CodeBuild ENV variable when building Docker images. For more info: http://docs.aws.amazon.com/codebuild/latest/userguide/sample-docker.html"
+}
+
+variable "insecure_ssl" {
+  type        = bool
+  default     = true
+  description = "(Optional) Ignore SSL warnings when connecting to source control."
 }
 
 variable "secondary_sources" {
