@@ -3,13 +3,9 @@ resource "aws_s3_bucket" "cache_bucket" {
   #bridgecrew:skip=BC_AWS_S3_13:Skipping `Enable S3 Bucket Logging` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=BC_AWS_S3_14:Skipping `Ensure all data stored in the S3 bucket is securely encrypted at rest` check until bridgecrew will support dynamic blocks (https://github.com/bridgecrewio/checkov/issues/776).
   #bridgecrew:skip=CKV_AWS_52:Skipping `Ensure S3 bucket has MFA delete enabled` due to issue in terraform (https://github.com/hashicorp/terraform-provider-aws/issues/629).
-  #checkov:skip=CKV2_AWS_6:skipping 'Ensure that S3 bucket has a Public Access block'
-  #checkov:skip=CKV2_AWS_62:skipping 'Ensure S3 buckets should have event notifications enabled'
-  #checkov:skip=CKV_AWS_145:skipping 'Ensure that S3 buckets are encrypted with KMS by default'
-  #checkov:skip=CKV_AWS_144:skipping 'Ensure that S3 bucket has cross-region replication enabled'
-  count         = module.context.enabled && local.create_s3_cache_bucket ? 1 : 0
-  bucket        = local.cache_bucket_name_normalised
-  acl           = "private"
+  count  = module.context.enabled && local.create_s3_cache_bucket ? 1 : 0
+  bucket = local.cache_bucket_name_normalised
+  #  acl           = "private"
   force_destroy = true
   tags          = module.context.tags
 
@@ -145,10 +141,13 @@ data "aws_s3_bucket" "secondary_artifact" {
 }
 
 data "aws_iam_policy_document" "permissions" {
+<<<<<<< HEAD
   #checkov:skip=CKV_AWS_111:skipping 'Ensure IAM policies does not allow write access without constraints'
   #checkov:skip=CKV_AWS_356:skipping 'Ensure no IAM policies documents allow "*" as a statement's resource for restrictable actions'
   #checkov:skip=CKV_AWS_108:skipping 'Ensure IAM policies does not allow data exfiltration'
   #checkov:skip=CKV_AWS_109:skipping 'Ensure IAM policies does not allow permissions management / resource exposure without constraints'
+=======
+>>>>>>> 2.0.1
   count                   = module.context.enabled ? 1 : 0
   source_policy_documents = var.codebuild_policy_documents
 
@@ -419,7 +418,19 @@ resource "aws_codebuild_project" "default" {
     location            = var.source_location
     report_build_status = var.report_build_status
     git_clone_depth     = var.git_clone_depth != null ? var.git_clone_depth : null
+    insecure_ssl        = var.insecure_ssl
 
+<<<<<<< HEAD
+=======
+    dynamic "build_status_config" {
+      for_each = var.build_status_config
+      content {
+        context    = build_status_config.value.context
+        target_url = build_status_config.value.target_url
+      }
+    }
+
+>>>>>>> 2.0.1
     dynamic "git_submodules_config" {
       for_each = var.fetch_git_submodules ? [""] : []
       content {
